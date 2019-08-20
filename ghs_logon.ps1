@@ -1,5 +1,11 @@
 ﻿#
 # Powershell script the prepares GHS logon environment
+# To implement:
+#  - Multithreading (import .dll/Start-Job/Get-Job/Receive-Job)
+#  - Compartmentalise script
+#  - Chrome homepage
+#  - Setting cookies for landing page
+#  - Folder redirection?
 
 
 #Search for user details
@@ -226,18 +232,83 @@ $DeviceLocation = $RoomAllocation -split ","
 Write-Host "Computer location: " $RoomAllocation
 Write-Host "User role: " $role
 
-#test if folder exists
+#Summary of Variables to be used for environment
+
+Write-Host "Computer location: " $RoomAllocation
+Write-Host "User role: " $role
+
+############drives####################
+
+#setting path for drive mapping
+$path = "\\8385dip000sf002\Mapping_Resources\_SiteConfig\_Global"
+$drivesListRaw = @()
+
+#reading the printer mapping file
+
+if ($path | Test-Path){
+Write-Host "Mapping drives from the following location: " $path
+$sr = New-Object System.IO.StreamReader($path + "\Drive_Mapping.txt")
+    while ($sr.Peek() -ne -1){
+        if ($sr.Peek() -eq 59 -or $sr.Peek() -eq 13){
+            [void]$sr.ReadLine()
+        }
+        else {
+            $line = $sr.ReadLine()
+            if ($line -match 'NTWShare'){
+                $drivesListRaw += $line
+            }
+        }
+    }
+$sr.Dispose()
+
+}
+
+
+#filter list of drives based on role
+$drivesListParsed = New-Object System.Collections.ArrayList($null)
+
+#DEC Standard Drives
+if ($role -match "student"){
+    $studentPath = "\\8385dip000sf001\Student\"+$userAttr.mailNickname
+    $drivesListParsed.Add(@("U:",$studentPath)) #home
+    $drivesListParsed.Add(@("P:","\\8385dip000sf001\Collaboration")) #collaboration
+}
+else {
+    $staffPath = "\\8385dip000sf001\Staff\_"+$userAttr.mailNickname
+    $drivesListParsed.Add(@("U:",$staffPath)) #home
+    $drivesListParsed.Add(@("T:","\\8385dip000sf001\Faculty")) #faculty
+}
+
+$drivesListParsed.Add(@("S:","\\8385dip000sf003\Network_Applications")) #network_applications
+
+foreach ($drive in 0..($drivesListRaw.Length-1)){
+    $driveSetting = $drivesListRaw[$drive].Substring($drivesListRaw[$drive].IndexOf("=")+1).Split("#")
+    $driveLetter = $driveSetting[0].Trim()
+    if ($driveSetting[2] -match "all" -or $role -match "admin" -or $driveSetting[2] -match $role ){
+        [void]$drivesListParsed.Add(@($driveLetter,$driveSetting[1]))
+    }
+}
+
+$drivesListParsed
+
+foreach($drive in $drivesListParsed){
+    net use $drive[0]  /delete
+    net use $drive[0] | "drive" $drive[1] /persistent:yes
+}
+
+########################################
+
+#setting path for mapping
 $path = "\\8385dip000sf002\Mapping_Resources\_SiteConfig\_"
 $printerListRaw = @()
 
-#reading the mapping file
+#reading the printer mapping file
 foreach ($num in 0..2){
     $path = $path + $DeviceLocation[$num]
     
     if ($path | Test-Path){
-    Write-Host "Mapping from the following location: " $path
+    Write-Host "Mapping printers from the following location: " $path
     $sr = New-Object System.IO.StreamReader($path + "\Printer_Mapping.txt")
-    $srLineNumber = 1
         while ($sr.Peek() -ne -1){
             if ($sr.Peek() -eq 59 -or $sr.Peek() -eq 13){
                 [void]$sr.ReadLine()
@@ -256,7 +327,7 @@ foreach ($num in 0..2){
 
 #filter list of printers based on role
 $printerListParsed = New-Object System.Collections.ArrayList($null)
-foreach ($printer in 0..2){
+foreach ($printer in 0..($printerListRaw.Length-1)){
     $defaultSetting = 0
     if ($printerListRaw[$printer] -match "default"){$defaultSetting = 1}
     $printerPath = $printerListRaw[$printer].Substring($printerListRaw[$printer].IndexOf("\")).Split('#')
@@ -264,6 +335,7 @@ foreach ($printer in 0..2){
         [void]$printerListParsed.Add(@($printerPath[0],$printerPath[1],$defaultSetting))
     }
 }
+
 Delete-NetworkPrinters
 Write-Host "The following printers will be mapped: " -ForegroundColor Green	
 $printerListParsed
