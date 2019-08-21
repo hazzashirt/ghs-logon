@@ -1,27 +1,28 @@
-' VBScript for silently running the powershell script
-Dim shell,command
-
-
-Dim x
+Dim x, iCounter, sCommand, sHost, WshShell, sProcess
 On Error Resume Next
 
-x = 0
-Do Until x = 1
-Err.Clear
-command = "powershell.exe -executionpolicy bypass -NoLogo -NonInteractive -file ""\\8385HR0002SA001\NETLOGON\logon.ps1"""
+Set WshShell = wscript.createObject("wscript.shell")
 
-set shell = CreateObject("WScript.Shell")
+iCounter = 0
+iAttempts = 60
+sHost = "8385hr0002sf001"
+sProcess = "powershell.exe -executionpolicy bypass -NoLogo -NonInteractive -file ""\\8385HR0002SF001\NETLOGON\logon.ps1"""
 
-shell.Run command,0
+'Let's loop through the attempts
+Do While iCounter < iAttempts
+	'Ping command line and switches
+	sCommand = "ping -n 1 -w 300 " & sHost
 
-If Err.Number = 0 Then
-  command = "powershell.exe -executionpolicy bypass -NoLogo -NonInteractive -file ""\\8385HR0002SF001\NETLOGON\logon.ps1"""
-
-set shell = CreateObject("WScript.Shell")
-
-shell.Run command,0
-  a = MsgBox("Do you like red color?",3,"Choose options")
-  x = 1
-End If
-WScript.Sleep(3000)
+	'Run ping and get results
+	ReturnCode = WshShell.Run(sCommand, 0, True)
+	'0 = pingable, 1 = no response
+	If ReturnCode = 0 Then
+		'Start Process
+		WshShell.run sProcess,0
+		wscript.quit
+	Else
+		'Delay - 1000 = 1 second
+		wscript.sleep 2000
+	End If
+	iCounter = iCounter + 1
 Loop
