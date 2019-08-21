@@ -292,8 +292,8 @@ foreach ($drive in 0..($drivesListRaw.Length-1)){
 $drivesListParsed
 
 foreach($drive in $drivesListParsed){
-    net use $drive[0]  /delete
-    net use $drive[0] | "drive" $drive[1] /persistent:yes
+    net use $drive[0] /delete
+    net use $drive[0] $drive[1] /persistent:yes
 }
 
 ########################################
