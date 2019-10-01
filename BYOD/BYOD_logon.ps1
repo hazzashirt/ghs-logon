@@ -2,10 +2,17 @@
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $Form                            = New-Object system.Windows.Forms.Form
-$Form.ClientSize                 = '454,170'
+$Form.ClientSize                 = '430,165'
 $Form.text                       = "GHS Login"
 $Form.BackColor                  = "#ffffff"
 $Form.TopMost                    = $false
+# This base64 string holds the bytes that make up the orange 'G' icon (just an example for a 32x32 pixel image)
+$iconBase64      = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAI2SURBVDhPbVJLaxNRFI4QtGlNpZYKLlwURSw+QCpStNhWkww27dDJOIIamtZuitCF6MI/IPhAEaxoixZFENy5Fly6ERE3iohgUVBEobZJzLzufJ5z52Yyg34Mcx6c893v3HNTiCMAdo/mkD6hoUsvoEbx65WfaC9p6DAK2GbkVWELEcGWsgHHcahQg09x3RX4AiFJPeGjuziMOuX/NBy0TRyVPQxJ8M218YNsWh+B7/tYVxyUKtpLOXSeHidbQGpsENkzRXSW8sjkD6PBjYRIQdrKITuhkSfQbRVhc5JOp0+iw9Sk30YEG6RP6ggRwQr/qILlMx5U9uCuuYNm+Y6l8i6VJQiBuuepIEaQoQtyAxERSAQuHk/1ka2qRIj1+rDyYgSM7XpOeXSQvSZtAJf+Lppnbh07prwQCYIgaE6s4Hyl3t/RPaixE0gSqN8mte9mI9seiy44MV+IkECEMzYEC6UtFPqplqQHSjjZ3tIQPFp3BFGTJnWpchxPb16QAa+HwQ+G992UwC/x3Ro1U5wxC/Crv7BQ2Yv5mUNIXZ0+ghtnB3B/diBUyHNS4fPFyxxJXJseoXx4Abz/xvIb3KocwJUZemAyK0GSV98ja7Q2UWVGryW766SBRxfH6fT9KhO7RKmWb732CXfODVH3Z9wu78TDyV4slvvgOS7mz5u4d4oeV2wdiS0wPr58hg+vXuDJ3EHYto2FqX4sTe7D6vJbXJ8z4XuOqgzxD0Ecmy0dG61RFf0PwF9M0mQalEsZ3QAAAABJRU5ErkJggg=='
+$iconBytes       = [Convert]::FromBase64String($iconBase64)
+$stream          = New-Object IO.MemoryStream($iconBytes, 0, $iconBytes.Length)
+$stream.Write($iconBytes, 0, $iconBytes.Length);
+$iconImage       = [System.Drawing.Image]::FromStream($stream, $true)
+$Form.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $stream).GetHIcon())
 
 $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
 $PictureBox1.width               = 137
@@ -64,23 +71,32 @@ $checkbox1.Font                  = 'Microsoft Sans Serif,10'
 $ProgressBar1                    = New-Object system.Windows.Forms.ProgressBar
 $ProgressBar1.width              = 170
 $ProgressBar1.height             = 20
-$ProgressBar1.location           = New-Object System.Drawing.Point(170,120)
+$ProgressBar1.location           = New-Object System.Drawing.Point(170,130)
+
+
+$ProgressBarLabel                = New-Object system.Windows.Forms.Label
+$ProgressBarLabel.location       = New-Object System.Drawing.Point(180,115)
+$ProgressBarLabel.width          = 200
+$ProgressBarLabel.height         = 20
+$ProgressBarLabel.text           = ""
+$ProgressBarLabel.Font           = 'Microsoft Sans Serif,8'
 
 $loginbutton                     = New-Object system.Windows.Forms.Button
 $loginbutton.text                = "Login"
 $loginbutton.width               = 60
 $loginbutton.height              = 30
-$loginbutton.location            = New-Object System.Drawing.Point(359,120)
+$loginbutton.location            = New-Object System.Drawing.Point(359,125)
 $loginbutton.Font                = 'Microsoft Sans Serif,10'
 
+
 $comboBox                         = New-Object System.Windows.Forms.ComboBox
-$comboBox.SelectedIndex           = 0
 $comboBox.DropDownStyle           = [System.Windows.Forms.ComboBoxStyle]::DropDownList
 $comboBox.Size                    = New-Object System.Drawing.Size(100,20)
 $comboBox.Height                  = 80
 $comboBox.Location                = New-Object System.Drawing.Point(175,85)
 
 
+[void] $comboBox.Items.Add('Library')
 [void] $comboBox.Items.Add('Maths')
 [void] $comboBox.Items.Add('English')
 [void] $comboBox.Items.Add('Science')
@@ -89,13 +105,17 @@ $comboBox.Location                = New-Object System.Drawing.Point(175,85)
 [void] $comboBox.Items.Add('TAS')
 [void] $comboBox.Items.Add('Support')
 [void] $comboBox.Items.Add('Learning Support')
+$comboBox.SelectedIndex           = 0
 
 
-$Form.controls.AddRange(@($PictureBox1,$loginbutton,$userbox,$passbox,$username,$detnsw,$password,$checkbox1,$ProgressBar1,$comboBox))
+$Form.controls.AddRange(@($PictureBox1,$loginbutton,$userbox,$passbox,$username,$detnsw,$password,$checkbox1,$ProgressBar1,$comboBox,$ProgressBarLabel))
 
 #$loginbutton.Add_Click({processLogin})
 
 $loginbutton.Add_MouseUp({processLogin})
+$loginbutton.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
+$passbox.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
+$comboBox.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
 
 
 
@@ -105,7 +125,8 @@ function processLogin ()
     $pass = $passbox.text
     $homepath = $("\\8385dip000sf001\Staff\_"+$userbox.Text)
     try{
-        Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 10
+        $ProgressBar1.Value = 10
+        $ProgressBarLabel.Text = "Mapping Home"
         mapDrive "U:" $homepath $user $pass
         if ($LASTEXITCODE -eq 0){
             Write-Host "Successfully mapped drive"
@@ -115,26 +136,37 @@ function processLogin ()
         }
     }
     catch [System.Exception] {
-        [System.Windows.Forms.MessageBox]::Show("test","test1",[System.Windows.Forms.MessageBoxButtons]::OK)
+        [System.Windows.Forms.MessageBox]::Show("Incorrect username or password! Please try again.","Error",[System.Windows.Forms.MessageBoxButtons]::OK)
+        $ProgressBar1.value = 0
+        $ProgressBarLabel.Text = ""
         return
     }    
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 20
+    $ProgressBar1.Value = 20
+    $ProgressBarLabel.Text = "Mapping Faculty"
     mapDrive "T:" "\\8385dip000sf001\Faculty" $user $pass
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 30
+    $ProgressBar1.Value = 30
+    $ProgressBarLabel.Text = "Mapping Collaboration"
     mapDrive "P:" "\\8385dip000sf001\Collaboration" $user $pass
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 40
+    $ProgressBar1.Value = 40
+    $ProgressBarLabel.Text = "Mapping Network_Applications"
     mapDrive "S:" "\\8385dip000sf003\Network_Applications" $user $pass
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 50
+    $ProgressBar1.Value = 50
+    $ProgressBarLabel.Text = "Mapping Data_8385"
     mapDrive "F:" "\\8385hr0002sf001\Data_8385" $user $pass
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 60
-    mapDrive "I:" "\8385hr0002sf001\iPad" $user $pass
-    Write-Progress -Activity "Mapping" -Status "Mapping Home Drive" -PercentComplete 70
+    $ProgressBar1.Value = 60
+    $ProgressBarLabel.Text = "Mapping iPad"
+    mapDrive "I:" "\\8385hr0002sf001\iPad" $user $pass
+    $ProgressBar1.Value = 70
+    $ProgressBarLabel.Text = "Mapping Apps_8385"
     mapDrive "Q:" "\\8385dip000sf003\Apps_8385" $user $pass
     DelOSCNetworkPrinters
     mapPrinter($comboBox.text)
-    if ($checkbox1) {
-        Start-Process -Path "http://detnsw.net"
+    [System.Windows.Forms.MessageBox]::Show("Finished mapping printers and drivers!","Completed",[System.Windows.Forms.MessageBoxButtons]::OK)
+    if ($checkbox1.checked -eq $True) {
+        Start-Process "http://detnsw.net"
     }
+    $Form.Close()
+
 }
 
 Function DelOSCNetworkPrinters
@@ -177,6 +209,8 @@ function mapDrive
 function mapPrinter
 {
     param([string]$faculty)
+    $ProgressBar1.Value = 80
+    $ProgressBarLabel.Text = "Mapping Faculty printer"
     switch ($faculty) {
         'Maths' { (New-Object -ComObject WScript.Network).AddWindowsPrinterConnection("\\8385hr0002sp001\GR0039 - Maths") ; break}
         'English' { (New-Object -ComObject WScript.Network).AddWindowsPrinterConnection("\\8385hr0002sp001\ER1010 - English") ; break}
@@ -189,6 +223,12 @@ function mapPrinter
         'Learning Support' { (New-Object -ComObject WScript.Network).AddWindowsPrinterConnection("\\8385hr0002sp001\ER0007 - Learning Support") ; break}
         Default { break; }
     }
+    $ProgressBar1.Value = 90
+    $ProgressBarLabel.Text = "Mapping Library printer"
+    (New-Object -ComObject WScript.Network).AddWindowsPrinterConnection("\\8385hr0002sp001\HR0015 - Library Students")
+    (New-Object -ComObject WScript.Network).AddWindowsPrinterConnection("\\8385hr0002sp001\HR0015 - Library Students (Colour)")
+    $ProgressBar1.Value = 100
+    $ProgressBarLabel.Text = "Completed!"
 }
 
 $Form.ShowDialog()
