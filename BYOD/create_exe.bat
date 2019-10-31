@@ -1,0 +1,1 @@
+.\ps2exe.ps1 .\BYOD_logon.ps1 -noOutput -noError -noconfigfile -noconsole -iconfile .\logo_LS2_icon.ico -verbose
