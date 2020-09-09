@@ -2,7 +2,7 @@
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $Form                            = New-Object system.Windows.Forms.Form
-$Form.ClientSize                 = '390,135'
+$Form.ClientSize                 = '400,135'
 $Form.text                       = "GHS Login"
 $Form.BackColor                  = "#ffffff"
 $Form.TopMost                    = $false
@@ -13,12 +13,14 @@ $stream          = New-Object IO.MemoryStream($iconBytes, 0, $iconBytes.Length)
 $stream.Write($iconBytes, 0, $iconBytes.Length);
 $iconImage       = [System.Drawing.Image]::FromStream($stream, $true)
 $Form.Icon       = [System.Drawing.Icon]::FromHandle((New-Object System.Drawing.Bitmap -Argument $stream).GetHIcon())
+$Form.FormBorderStyle = "FixedDialog"
+$Form.TopMost = $True
 
 $PictureBox1                     = New-Object system.Windows.Forms.PictureBox
 $PictureBox1.width               = 120
 $PictureBox1.height              = 120
 $PictureBox1.location            = New-Object System.Drawing.Point(10,10)
-$PictureBox1.imageLocation       = "\\8385dip000sf001\Staff\_harry.thang1\Desktop\PS2EXE-GUI (1)\Logo.jpg"
+$PictureBox1.imageLocation       = "D:\My Drive\Desktop\Projects\BYOD-Logon\PS2EXE-GUI (1)\Logo.jpg"
 $PictureBox1.SizeMode            = [System.Windows.Forms.PictureBoxSizeMode]::zoom
 
 $userbox                         = New-Object system.Windows.Forms.TextBox
@@ -92,9 +94,16 @@ $ProgressBarLabel.Font           = 'Microsoft Sans Serif,8'
 $loginbutton                     = New-Object system.Windows.Forms.Button
 $loginbutton.text                = "Login"
 $loginbutton.width               = 60
-$loginbutton.height              = 30
-$loginbutton.location            = New-Object System.Drawing.Point(320,95)
+$loginbutton.height              = 25
+$loginbutton.location            = New-Object System.Drawing.Point(330,50)
 $loginbutton.Font                = 'Microsoft Sans Serif,10'
+
+$closebutton                     = New-Object system.Windows.Forms.Button
+$closebutton.text                = "Cancel"
+$closebutton.width               = 60
+$closebutton.height              = 25
+$closebutton.location            = New-Object System.Drawing.Point(330,95)
+$closebutton.Font                = 'Microsoft Sans Serif,10'
 
 
 $comboBox                         = New-Object System.Windows.Forms.ComboBox
@@ -117,11 +126,12 @@ $comboBox.Location                = New-Object System.Drawing.Point(220,51)
 $comboBox.SelectedIndex           = 0
 
 
-$Form.controls.AddRange(@($PictureBox1,$loginbutton,$userbox,$username,$detnsw,$faculty,$ProgressBar1,$comboBox,$ProgressBarLabel)) #$passbox, $password, $checkbox1
+$Form.controls.AddRange(@($PictureBox1,$loginbutton,$closebutton,$userbox,$username,$detnsw,$faculty,$ProgressBar1,$comboBox,$ProgressBarLabel)) #$passbox, $password, $checkbox1
 
 #$loginbutton.Add_Click({processLogin})
 
 $loginbutton.Add_MouseUp({processLogin})
+$closebutton.Add_MouseUp({$Form.Close()})
 $loginbutton.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
 $userbox.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
 $comboBox.Add_Keydown({if ($_.KeyCode -eq "Enter"){processLogin}})
@@ -132,6 +142,8 @@ function processLogin ()
         [System.Windows.Forms.MessageBox]::Show("Please enter a username","Error",[System.Windows.Forms.MessageBoxButtons]::OK)
         return
     }
+    $user = $($userbox.Text+"@det.nsw.edu.au")
+    $pass = $passbox.text
     $ProgressBar1.Value = 10
     $ProgressBarLabel.Text = "Mapping Faculty"
     mapDrive "T:" "\\8385dip000sf001\Faculty" $user $pass
@@ -150,8 +162,7 @@ function processLogin ()
     $ProgressBar1.Value = 60
     $ProgressBarLabel.Text = "Mapping Apps_8385"
     mapDrive "Q:" "\\8385dip000sf003\Apps_8385" $user $pass
-    $user = $($userbox.Text+"@detnsw")
-    $pass = $passbox.text
+    
     $homepath = $("\\8385dip000sf001\Staff\_"+$userbox.Text)
     try{
         $ProgressBar1.Value = 70
@@ -210,8 +221,30 @@ function mapDrive
 {
     param([string]$letter, [string]$path, [string]$user, [string]$pass)
     Write-Host $letter, $user, $path, $pass
-    net use $letter /delete /y
-    net use $letter $path /persistent:yes
+    Start-Job -ScriptBlock { net use $letter /delete /y}
+    Start-Job -ScriptBlock { net use $letter $path /persistent:yes }
+    $Timeout = 5
+    $jobs = Get-Job
+    $Condition = {param($jobs) 'Running' -notin $jobs.State }
+    $ConditionArgs = $jobs
+    $RetryInterval = 5 ## seconds
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    while (($timer.Elapsed.TotalSeconds -lt $Timeout) -and (& $Condition $ConditionArgs)) {
+ 
+         ## Wait a specific interval
+         Start-Sleep -Seconds $RetryInterval
+ 
+         ## Check the time
+         $totalSecs = [math]::Round($timer.Elapsed.TotalSeconds,0)
+         Write-Verbose -Message "Still waiting for action to complete after [$totalSecs] seconds..."
+     }
+    $timer.Stop()
+    if ($timer.Elapsed.TotalSeconds -gt $Timeout) {
+         throw 'Action did not complete before timeout period.'
+     } else {
+         Write-Verbose -Message 'Action completed before the timeout period.'
+     }
+    
     <#$pass = ConvertTo-SecureString $passbox.Text -AsPlainText -Force
     $Cred = New-Object System.Management.Automation.PsCredential($user,$pass)
     
